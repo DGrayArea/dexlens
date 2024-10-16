@@ -129,7 +129,7 @@ const PortFolio: React.FC<{
                         : "text-green-500"
                     }`}
                   >
-                    {Number(item.change) < 0 ? "" : ""}
+                    {Number(item.change) < 0 ? "" : " "}
                     {item.change}%
                   </td>
                   <td className="px-4 py-2">{item.balance}</td>
