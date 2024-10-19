@@ -12,6 +12,7 @@ import { PlusIcon, SearchIcon, Trash2Icon, ViewIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { ethers } from "ethers";
+import { utils } from "ethers";
 import Loading from "@/components/Loading";
 import PortFolio from "@/components/PortFolio";
 import { getPortfolioCovalent } from "@/helpers/getPortfolioCovalent";
@@ -34,13 +35,11 @@ export default function Home() {
   ]);
   const [errors, setErrors] = useState<(boolean | null)[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [accountsInfo, setAccountsInfo] = useState<WalletData>(
-    walletData?.data?.data
-  );
+  const [accountsInfo, setAccountsInfo] = useState<WalletData>();
   const [tab, setTab] = useState<"home" | "portfolio">("portfolio");
 
   const isValidEthAddress = (address: string): boolean => {
-    return ethers.utils.isAddress(address);
+    return /^0x[a-fA-F0-9]{40}$/.test(address);
   };
 
   const handleAddField = useCallback((): void => {
@@ -97,10 +96,14 @@ export default function Home() {
     setErrors(newErrors);
   }, [addressFields]);
 
-  const handleSubmit = useCallback((): void => {
+  const handleSubmit = useCallback(async () => {
+    setLoading(true);
     validateFields();
     if (errors.every((error) => error === null)) {
+      const data = await getPortfolioCovalent(addressFields[0].address);
+      setAccountsInfo(data?.data?.data);
       console.log("Collected input values:", addressFields);
+      setLoading(false);
     } else {
       console.log("Errors:", errors);
     }
@@ -206,7 +209,7 @@ export default function Home() {
 
                   <div className="flex w-full justify-center items-center mt-6">
                     <Button
-                      onClick={validateFields}
+                      onClick={handleSubmit}
                       variant="secondary"
                       className="py-[22px] transition-all active:scale-90 duration-200"
                     >

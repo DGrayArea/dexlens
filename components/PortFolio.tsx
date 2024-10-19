@@ -134,17 +134,27 @@ const PortFolio: React.FC<{
                   Number(item.holdings[0].close.balance) /
                   Number(10 ** item.contract_decimals)
                 ).toFixed(3);
+                console.log(item);
                 return (
                   <tr key={index} className="border-y border-neutral-700/15">
                     <td className="px-4 py-3 flex flex-row items-center">
                       <div className="">
-                        <Image
-                          width={30}
-                          height={30}
-                          className="rounded-full mr-2"
-                          alt="logo-img"
-                          src={item.logo_url}
-                        />
+                        {item.logo_url ? (
+                          <Image
+                            width={30}
+                            height={30}
+                            className="rounded-full mr-2"
+                            alt="logo-img"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null; // Prevents infinite loop in case the fallback also fails
+                              e.currentTarget.src = ""; // Hide the broken image
+                              e.currentTarget.alt = "🤔sfksj"; // Display the emoji instead of the image alt text
+                            }}
+                            src={item.logo_url}
+                          />
+                        ) : (
+                          <div>🤔</div>
+                        )}
                       </div>
 
                       {item.contract_ticker_symbol}
