@@ -3,8 +3,10 @@ import { ethers } from "ethers";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 import { ArrowRight, ChevronLeft, SearchIcon } from "lucide-react";
-
+import truncateEthAddress from "truncate-eth-address";
 import React from "react";
+import { WalletData } from "@/config";
+import { TokenBalanceType } from "alchemy-sdk";
 
 const tableInfo = [
   {
@@ -13,7 +15,7 @@ const tableInfo = [
     change: 0.92,
     balance: "501.795974",
     value: "$1.31M",
-    logo: "/eth.png",
+    logo: "/eth-2.png",
   },
   {
     name: "ETH",
@@ -21,7 +23,7 @@ const tableInfo = [
     change: -0.92,
     balance: "501.795974",
     value: "$1.31M",
-    logo: "/eth.png",
+    logo: "/eth-2.png",
   },
 
   // Add more d
@@ -31,7 +33,7 @@ const tableInfo = [
     change: 0.92,
     balance: "501.795974",
     value: "$1.31M",
-    logo: "/eth.png",
+    logo: "/eth-2.png",
   },
   // Add more d
   {
@@ -40,7 +42,7 @@ const tableInfo = [
     change: -0.92,
     balance: "501.795974",
     value: "$1.31M",
-    logo: "/eth.png",
+    logo: "/eth-2.png",
   },
   // Add more d
 
@@ -48,12 +50,26 @@ const tableInfo = [
 ];
 
 const PortFolio: React.FC<{
-  data: unknown[];
+  data: WalletData;
   back: (tab: "home" | "portfolio") => void;
 }> = ({ data, back }) => {
+  const TokenItem = data.items[0];
+  type TokenBalance = typeof TokenItem;
+  // const bal = data.items[0].holdings.reduce((sum, item) => sum+=item.quote_rate);
+
   const formatter = new Intl.NumberFormat("en", { notation: "compact" });
-  const total = formatter.format(1350000);
-  const PNL = -1.5;
+  const total = formatter.format(
+    data.items.reduce((sum, item) => (sum += item.holdings[0].close.quote), 0)
+  );
+
+  const TOTAL_PNL = data?.items?.reduce((sum, item) => {
+    const tokenPNL =
+      ((item.holdings[0].quote_rate - item.holdings[1].quote_rate) /
+        item.holdings[1].quote_rate) *
+      100;
+    return sum + tokenPNL;
+  }, 0);
+
   return (
     <div className="h-full flex flex-col w-full duration-150 transition all">
       <div className="flex flex-row justify-between items-center mb-16 w-full">
@@ -65,6 +81,9 @@ const PortFolio: React.FC<{
             <ChevronLeft className="w-12 rounded-full active:scale-90 duration-150 transition all m-0 p-0" />
           </button>
           PortFolio <ArrowRight className="w-12" />
+          <span className="font-semibold">
+            {truncateEthAddress(data.address)}
+          </span>
         </div>
         <div>
           <SearchIcon className="w-16 cursor-pointer" />
@@ -85,10 +104,10 @@ const PortFolio: React.FC<{
               <div className="font-semibold text-lg">Change 24H %:</div>
               <div
                 className={`text-4xl font-mono ${
-                  PNL < 0 ? "text-red-500" : "text-green-500"
+                  TOTAL_PNL < 0 ? "text-red-500" : "text-green-500"
                 }`}
               >
-                {PNL.toFixed(1)}%
+                {TOTAL_PNL.toFixed(2)}%
               </div>
             </div>
           </div>
@@ -106,36 +125,48 @@ const PortFolio: React.FC<{
               </tr>
             </thead>
             <tbody className="font-mono text-base">
-              {tableInfo.map((item, index) => (
-                <tr key={index} className="border-y border-neutral-700/15">
-                  <td className="px-4 py-2 flex flex-row items-center">
-                    <div className="">
-                      <Image
-                        width={50}
-                        height={50}
-                        className="bg-white rounded-full p-1"
-                        alt="logo-img"
-                        src="/eth.png"
-                      />
-                    </div>
+              {data?.items?.map((item, index) => {
+                const PNL =
+                  ((item.holdings[0].quote_rate - item.holdings[1].quote_rate) /
+                    item.holdings[1].quote_rate) *
+                  100;
+                const holding = (
+                  Number(item.holdings[0].close.balance) /
+                  Number(10 ** item.contract_decimals)
+                ).toFixed(3);
+                return (
+                  <tr key={index} className="border-y border-neutral-700/15">
+                    <td className="px-4 py-3 flex flex-row items-center">
+                      <div className="">
+                        <Image
+                          width={30}
+                          height={30}
+                          className="rounded-full mr-2"
+                          alt="logo-img"
+                          src={item.logo_url}
+                        />
+                      </div>
 
-                    {item.name}
-                  </td>
-                  <td className="px-4 py-2">US{item.price}</td>
-                  <td
-                    className={`px-4 py-2 ${
-                      Number(item.change) < 0
-                        ? "text-red-500"
-                        : "text-green-500"
-                    }`}
-                  >
-                    {Number(item.change) < 0 ? "" : " "}
-                    {item.change}%
-                  </td>
-                  <td className="px-4 py-2">{item.balance}</td>
-                  <td className="px-4 py-2">{item.value}</td>
-                </tr>
-              ))}
+                      {item.contract_ticker_symbol}
+                    </td>
+                    <td className="px-4 py-3">
+                      ${Number(item.holdings[0].quote_rate).toFixed(6)}
+                    </td>
+                    <td
+                      className={`px-4 py-3 ${
+                        Number(PNL) < 0 ? "text-red-500" : "text-green-500"
+                      }`}
+                    >
+                      {Number(0) < 0 ? "" : " "}
+                      {PNL.toFixed(2)}%
+                    </td>
+                    <td className="px-4 py-3">{holding}</td>
+                    <td className="px-4 py-3">
+                      {item.holdings[0].close.pretty_quote}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

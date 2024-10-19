@@ -9,11 +9,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PlusIcon, SearchIcon, Trash2Icon, ViewIcon } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { ethers } from "ethers";
 import Loading from "@/components/Loading";
 import PortFolio from "@/components/PortFolio";
+import { getPortfolioCovalent } from "@/helpers/getPortfolioCovalent";
+import { walletData, WalletData } from "@/config";
 
 // bg-[rgb(34, 36, 42);]
 
@@ -22,6 +24,7 @@ interface InputType {
   chain: Chain;
   address: string;
 }
+
 export default function Home() {
   const [addressFields, setAddressFields] = useState<InputType[]>([
     {
@@ -31,11 +34,13 @@ export default function Home() {
   ]);
   const [errors, setErrors] = useState<(boolean | null)[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [accountsInfo, setAccountsInfo] = useState<unknown[]>([{}]);
+  const [accountsInfo, setAccountsInfo] = useState<WalletData>(
+    walletData?.data?.data
+  );
   const [tab, setTab] = useState<"home" | "portfolio">("portfolio");
 
   const isValidEthAddress = (address: string): boolean => {
-    return ethers.isAddress(address);
+    return ethers.utils.isAddress(address);
   };
 
   const handleAddField = useCallback((): void => {
@@ -101,6 +106,16 @@ export default function Home() {
     }
   }, [errors, addressFields, validateFields]);
 
+  useEffect(() => {
+    const getPort = async () => {
+      const data = await getPortfolioCovalent(
+        "0x4a63BA5ec7160bAff089bFd50CCcD39951994Dd1"
+      );
+      console.log(data);
+    };
+    // getPort();
+  }, []);
+
   return (
     <div
       className={`flex flex-col justify-content p-10 min-h-screen items-center`}
@@ -117,7 +132,7 @@ export default function Home() {
           <Loading setLoading={setLoading} back={setTab} />
         ) : (
           <>
-            {accountsInfo?.length > 0 && tab === "portfolio" ? (
+            {accountsInfo && tab === "portfolio" ? (
               <PortFolio back={setTab} data={accountsInfo} />
             ) : (
               <div className="w-full h-full hidden lg:flex flex-col transition-all duration-150">
