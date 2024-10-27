@@ -1,74 +1,56 @@
-import toast from "react-hot-toast";
-import { ethers } from "ethers";
-import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 import { ArrowRight, ChevronLeft, SearchIcon } from "lucide-react";
 import truncateEthAddress from "truncate-eth-address";
-import React from "react";
-import { WalletData } from "@/config";
-import { TokenBalanceType } from "alchemy-sdk";
+import React, { useMemo, useState } from "react";
+import { usePortfolio } from "@/hooks/usePortfolio";
 
-const tableInfo = [
-  {
-    name: "ETH",
-    price: "$2.60K",
-    change: 0.92,
-    balance: "501.795974",
-    value: "$1.31M",
-    logo: "/eth-2.png",
-  },
-  {
-    name: "ETH",
-    price: "$2.60K",
-    change: -0.92,
-    balance: "501.795974",
-    value: "$1.31M",
-    logo: "/eth-2.png",
-  },
+function TokenImage({ src, alt }: { src: string; alt: string }) {
+  const [imgSrc, setImgSrc] = useState(src);
 
-  // Add more d
-  {
-    name: "ETH",
-    price: "$2.60K",
-    change: 0.92,
-    balance: "501.795974",
-    value: "$1.31M",
-    logo: "/eth-2.png",
-  },
-  // Add more d
-  {
-    name: "ETH",
-    price: "$2.60K",
-    change: -0.92,
-    balance: "501.795974",
-    value: "$1.31M",
-    logo: "/eth-2.png",
-  },
-  // Add more d
+  const handleError = () => {
+    setImgSrc("/thinker.webp"); // Fallback emoji image
+  };
 
-  // Add more data as needed
-];
+  return (
+    <Image
+      src={imgSrc}
+      alt={alt || "Token image"}
+      width={30}
+      height={30}
+      onError={handleError}
+      className="rounded-full mr-2"
+    />
+  );
+}
 
 const PortFolio: React.FC<{
-  data: WalletData;
   back: (tab: "home" | "portfolio") => void;
-}> = ({ data, back }) => {
-  const TokenItem = data.items[0];
-  type TokenBalance = typeof TokenItem;
-  // const bal = data.items[0].holdings.reduce((sum, item) => sum+=item.quote_rate);
-
+}> = ({ back }) => {
+  const { currentIndex, setCurrentIndex, data: portfolioData } = usePortfolio();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const formatter = new Intl.NumberFormat("en", { notation: "compact" });
-  const total = formatter.format(
-    data.items.reduce((sum, item) => (sum += item.holdings[0].close.quote), 0)
+  const total = useMemo(
+    () =>
+      formatter.format(
+        portfolioData[currentIndex].items.reduce(
+          (sum, item) => (sum += item.holdings[0].close.quote),
+          0
+        )
+      ),
+    [currentIndex, portfolioData, formatter]
   );
 
-  const TOTAL_PNL = data?.items?.reduce((sum, item) => {
-    const tokenPNL =
-      ((item.holdings[0].quote_rate - item.holdings[1].quote_rate) /
-        item.holdings[1].quote_rate) *
-      100;
-    return sum + tokenPNL;
-  }, 0);
+  const TOTAL_PNL = useMemo(() => {
+    return portfolioData[currentIndex]?.items?.reduce((sum, item) => {
+      if (item.holdings[0]?.quote_rate) {
+        const tokenPNL =
+          ((item.holdings[0].quote_rate - item.holdings[1].quote_rate) /
+            item.holdings[1].quote_rate) *
+          100;
+        return sum + tokenPNL;
+      } else return sum + 0;
+    }, 0);
+  }, [currentIndex, portfolioData]);
 
   return (
     <div className="h-full flex flex-col w-full duration-150 transition all">
@@ -82,7 +64,7 @@ const PortFolio: React.FC<{
           </button>
           PortFolio <ArrowRight className="w-12" />
           <span className="font-semibold">
-            {truncateEthAddress(data.address)}
+            {truncateEthAddress(portfolioData[currentIndex]?.address)}
           </span>
         </div>
         <div>
@@ -112,75 +94,140 @@ const PortFolio: React.FC<{
             </div>
           </div>
         </div>
-        <div className="mt-6 text-xl font-semibold mb-7">Assets</div>
-        <div className="max-h-[380px] w-[100%] overflow-auto bg-neutral-700/40 rounded-xl scrollbar-hide border">
-          <table className="w-full text-left text-sm text-gray-300">
-            <thead className="">
-              <tr className="text-lg">
-                <th className="px-4 py-4">Name</th>
-                <th className="px-4 py-4">USD Price</th>
-                <th className="px-4 py-4">Change 24H %</th>
-                <th className="px-4 py-4">Balance</th>
-                <th className="px-4 py-4">Value</th>
-              </tr>
-            </thead>
-            <tbody className="font-mono text-base">
-              {data?.items?.map((item, index) => {
-                const PNL =
-                  ((item.holdings[0].quote_rate - item.holdings[1].quote_rate) /
-                    item.holdings[1].quote_rate) *
-                  100;
-                const holding = (
-                  Number(item.holdings[0].close.balance) /
-                  Number(10 ** item.contract_decimals)
-                ).toFixed(3);
-                console.log(item);
-                return (
-                  <tr key={index} className="border-y border-neutral-700/15">
-                    <td className="px-4 py-3 flex flex-row items-center">
-                      <div className="">
-                        {item.logo_url ? (
-                          <Image
-                            width={30}
-                            height={30}
-                            className="rounded-full mr-2"
-                            alt="logo-img"
-                            onError={(e) => {
-                              e.currentTarget.onerror = null; // Prevents infinite loop in case the fallback also fails
-                              e.currentTarget.src = ""; // Hide the broken image
-                              e.currentTarget.alt = "🤔sfksj"; // Display the emoji instead of the image alt text
-                            }}
-                            src={item.logo_url}
-                          />
-                        ) : (
-                          <div>🤔</div>
-                        )}
-                      </div>
+        <div className="w-full h-full flex flex-row overflow-auto scrollbar-hide justify-between items-center space-x-8">
+          <div className="w-[25%]">
+            <div className="mt-6 text-xl font-semibold mb-7">Addresses</div>
+            <div className="min-h-[380px] max-h-[380px] overflow-auto bg-neutral-700/40 rounded-xl scrollbar-hide border flex flex-col p-3 space-y-2">
+              {portfolioData.map((portfolio, index) => {
+                const totalPortfolioBalance = formatter.format(
+                  portfolioData[currentIndex].items.reduce(
+                    (sum, item) => (sum += item.holdings[0].close.quote),
+                    0
+                  )
+                );
+                const totalPNLBalance = portfolio?.items?.reduce(
+                  (sum, item) => {
+                    if (item.holdings[0]?.quote_rate) {
+                      const tokenPNL =
+                        ((item.holdings[0]?.quote_rate -
+                          item.holdings[1]?.quote_rate) /
+                          item.holdings[1]?.quote_rate) *
+                        100;
+                      return sum + tokenPNL;
+                    } else return sum + 0;
+                  },
+                  0
+                );
 
-                      {item.contract_ticker_symbol}
-                    </td>
-                    <td className="px-4 py-3">
-                      ${Number(item.holdings[0].quote_rate).toFixed(6)}
-                    </td>
-                    <td
-                      className={`px-4 py-3 ${
-                        Number(PNL) < 0 ? "text-red-500" : "text-green-500"
-                      }`}
-                    >
-                      {Number(0) < 0 ? "" : " "}
-                      {PNL.toFixed(2)}%
-                    </td>
-                    <td className="px-4 py-3">{holding}</td>
-                    <td className="px-4 py-3">
-                      {item.holdings[0].close.pretty_quote}
-                    </td>
-                  </tr>
+                return (
+                  <div
+                    onClick={() => setCurrentIndex(index)}
+                    key={portfolio.address + index}
+                    className={`flex flex-row items-center space-x-2 hover:bg-neutral-500/35 rounded-lg p-2 whitespace-nowrap cursor-pointer transition-all hover:scale-105 ${
+                      index == currentIndex ? "bg-neutral-500/35" : "bg-none"
+                    }`}
+                  >
+                    <div className="flex justify-center items-center">
+                      <Image
+                        src={`https://api.dicebear.com/9.x/dylan/svg?seed=${
+                          portfolio.address + index
+                        }`}
+                        alt="image-avatar"
+                        width={35}
+                        height={35}
+                        className="rounded-lg"
+                      />
+                    </div>
+                    <div className="flex flex-col items-start text-sm whitespace-nowrap">
+                      {/* changed items-center to items-start */}
+                      <div className="font-semibold text-sm">
+                        {truncateEthAddress(portfolio.address)}
+                      </div>
+                      <div className="flex flex-row justify-between items-center space-x-6">
+                        <div className="flex justify-start">
+                          ${totalPortfolioBalance}
+                        </div>
+                        <div
+                          className={`flex justify-start ${
+                            Number(totalPNLBalance) < 0
+                              ? "text-red-500"
+                              : "text-green-500"
+                          }`}
+                        >
+                          {totalPNLBalance.toFixed(2)}%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
+            </div>
+          </div>
+          <div className="w-full ">
+            <div className="mt-6 text-xl font-semibold mb-7">Assets</div>
+            <div className="min-h-[380px] max-h-[380px] w-[100%] overflow-auto bg-neutral-700/40 rounded-xl scrollbar-hide border">
+              <table className="w-full text-left text-sm text-gray-300">
+                <thead className="">
+                  <tr className="text-lg">
+                    <th className="px-4 py-4">Name</th>
+                    <th className="px-4 py-4">USD Price</th>
+                    <th className="px-4 py-4">Change 24H %</th>
+                    <th className="px-4 py-4">Balance</th>
+                    <th className="px-4 py-4">Value</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono text-base">
+                  {portfolioData[currentIndex]?.items?.map((item, index) => {
+                    const PNL = item.holdings[0]?.quote_rate
+                      ? ((item.holdings[0].quote_rate -
+                          item.holdings[1].quote_rate) /
+                          item.holdings[1].quote_rate) *
+                        100
+                      : 0;
+                    const holding = (
+                      Number(item.holdings[0].close.balance) /
+                      Number(10 ** item.contract_decimals)
+                    ).toFixed(3);
+
+                    return (
+                      <tr
+                        key={index}
+                        className="border-y border-neutral-700/15"
+                      >
+                        <td className="px-4 py-3 flex flex-row items-center">
+                          <div className="">
+                            {item.logo_url ? (
+                              <TokenImage alt="logo-img" src={item.logo_url} />
+                            ) : (
+                              <div>🤔</div>
+                            )}
+                          </div>
+
+                          {item.contract_ticker_symbol}
+                        </td>
+                        <td className="px-4 py-3">
+                          ${Number(item.holdings[0].quote_rate).toFixed(6)}
+                        </td>
+                        <td
+                          className={`px-4 py-3 ${
+                            Number(PNL) < 0 ? "text-red-500" : "text-green-500"
+                          }`}
+                        >
+                          {Number(0) < 0 ? "" : " "}
+                          {PNL.toFixed(2)}%
+                        </td>
+                        <td className="px-4 py-3">{holding}</td>
+                        <td className="px-4 py-3">
+                          {item.holdings[0].close.pretty_quote}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-        {/* <Skeleton className="h-[380px] w-[100%] rounded-xl bg-neutral-700/40" /> */}
       </div>
     </div>
   );

@@ -8,7 +8,14 @@ const nextConfig = {
         hostname: "logos.covalenthq.com",
         port: "",
       },
+      {
+        protocol: "https",
+        hostname: "api.dicebear.com",
+        port: "",
+      },
+      { protocol: "https", hostname: "via.placeholder.com", port: "" },
     ],
+    dangerouslyAllowSVG: true,
   },
 };
 

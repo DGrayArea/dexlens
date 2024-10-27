@@ -11,12 +11,11 @@ import {
 import { PlusIcon, SearchIcon, Trash2Icon, ViewIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { ethers } from "ethers";
-import { utils } from "ethers";
 import Loading from "@/components/Loading";
 import PortFolio from "@/components/PortFolio";
 import { getPortfolioCovalent } from "@/helpers/getPortfolioCovalent";
 import { walletData, WalletData } from "@/config";
+import { usePortfolio } from "@/hooks/usePortfolio";
 
 // bg-[rgb(34, 36, 42);]
 
@@ -27,6 +26,7 @@ interface InputType {
 }
 
 export default function Home() {
+  const { data, setPortFolio } = usePortfolio();
   const [addressFields, setAddressFields] = useState<InputType[]>([
     {
       chain: "ethereum",
@@ -35,7 +35,6 @@ export default function Home() {
   ]);
   const [errors, setErrors] = useState<(boolean | null)[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [accountsInfo, setAccountsInfo] = useState<WalletData>();
   const [tab, setTab] = useState<"home" | "portfolio">("portfolio");
 
   const isValidEthAddress = (address: string): boolean => {
@@ -100,14 +99,30 @@ export default function Home() {
     setLoading(true);
     validateFields();
     if (errors.every((error) => error === null)) {
-      const data = await getPortfolioCovalent(addressFields[0].address);
-      setAccountsInfo(data?.data?.data);
-      console.log("Collected input values:", addressFields);
+      console.log("Here for Mapping");
+      const returnedPortfolioData: WalletData[] = await Promise.all(
+        addressFields.map(async (address) => {
+          try {
+            const data = await getPortfolioCovalent(address.address);
+            return data.data.data;
+          } catch (error) {
+            console.error(
+              "Error fetching portfolio data for address:",
+              address,
+              error
+            );
+            return null; // or some default value, if needed
+          }
+        })
+      );
+      setPortFolio(returnedPortfolioData);
       setLoading(false);
     } else {
       console.log("Errors:", errors);
+      setLoading(false);
     }
-  }, [errors, addressFields, validateFields]);
+    setLoading(false);
+  }, [errors, addressFields, validateFields, setPortFolio]);
 
   useEffect(() => {
     const getPort = async () => {
@@ -135,8 +150,8 @@ export default function Home() {
           <Loading setLoading={setLoading} back={setTab} />
         ) : (
           <>
-            {accountsInfo && tab === "portfolio" ? (
-              <PortFolio back={setTab} data={accountsInfo} />
+            {data.length > 0 && tab === "portfolio" ? (
+              <PortFolio back={setTab} />
             ) : (
               <div className="w-full h-full hidden lg:flex flex-col transition-all duration-150">
                 <div className="flex flex-row justify-between items-center mb-16">
