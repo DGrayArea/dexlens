@@ -24,13 +24,13 @@ const main = async () => {
   // Loop through all tokens with non-zero balance
   for (const token of nonZeroBalances) {
     // Get balance of token
-    let balance = token.tokenBalance;
+    let balance: any = token.tokenBalance;
 
     // Get metadata of token with API endpoint
     const metadata = await alchemy.core.getTokenMetadata(token.contractAddress);
 
     // Compute token balance in human-readable format
-    balance = balance / Math.pow(10, metadata.decimals);
+    balance = Number(balance) / Math.pow(10, metadata.decimals!);
     balance = balance.toFixed(2);
 
     // Print name, balance, and symbol of token
